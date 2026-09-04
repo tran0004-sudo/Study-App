@@ -6,12 +6,57 @@ function makeBase(c,all,idx){
   var opts=sh([c.kor.word,others[0].kor.word,others[1].kor.word,others[2].kor.word]);
   return {def:c.kor.def,c:opts,a:opts.indexOf(c.kor.word),word:c.kor.word,theme:c.theme,_vqi:idx};
 }
+
+/* 한국 시간(KST) 기준 날짜 키. 브라우저/기기 타임존이 달라도 같은 날에는 같은 미션을 보여 준다. */
+function missionDateKey(){
+  var now=new Date();
+  var kst=new Date(now.getTime()+9*60*60*1000);
+  return kst.getUTCFullYear()+'-'+('0'+(kst.getUTCMonth()+1)).slice(-2)+'-'+('0'+kst.getUTCDate()).slice(-2);
+}
+
+/* 문자열을 32비트 시드로 변환 */
+function hashSeed(str){
+  var h=2166136261>>>0;
+  for(var i=0;i<str.length;i++){
+    h^=str.charCodeAt(i);
+    h=Math.imul(h,16777619);
+  }
+  return h>>>0;
+}
+
+/* 날짜별로 재현 가능한 난수 생성기 */
+function seededRandom(seed){
+  var s=seed>>>0;
+  return function(){
+    s+=0x6D2B79F5;
+    var t=s;
+    t=Math.imul(t^(t>>>15),t|1);
+    t^=t+Math.imul(t^(t>>>7),t|61);
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+
+function seededShuffle(arr,seed){
+  var out=arr.slice(),rnd=seededRandom(seed);
+  for(var i=out.length-1;i>0;i--){
+    var j=Math.floor(rnd()*(i+1)),t=out[i];out[i]=out[j];out[j]=t;
+  }
+  return out;
+}
+
 function pickDaily3(){
   if(typeof syncGradeVocab==='function') syncGradeVocab();
   if(!VOCAB||VOCAB.length<4)return [];
-  var n=VOCAB.length,off=((dayIndex()*3)%n+n)%n,out=[];
-  for(var i=0;i<3;i++)out.push(VOCAB[(off+i)%n]);
-  return out;
+
+  /*
+   * 기존 (dayIndex()*3)%n 방식은 n이 3의 배수일 때 일부 시작점만 순환할 수 있었다.
+   * 날짜+학년+학기를 시드로 전체 목록을 섞은 뒤 앞의 3개를 사용하면
+   * 매일 다른 조합이 나오면서 같은 날짜에는 항상 동일한 미션을 유지한다.
+   */
+  var grade=(typeof S!=='undefined'&&S.grade!=null)?String(S.grade):'';
+  var sem=(typeof S!=='undefined'&&S.vocabSem!=null)?String(S.vocabSem):'';
+  var seed=hashSeed(missionDateKey()+'|'+grade+'|'+sem+'|'+VOCAB.length);
+  return seededShuffle(VOCAB,seed).slice(0,3);
 }
 startVocabMission=function(){
   var picked=pickDaily3(); if(!picked.length){S.screen={type:'vocab'};render();return;}
