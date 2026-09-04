@@ -1,0 +1,3 @@
+vocab_mission_repeat_patch.js loaded after vocab_grade_patch.js.
+Uses the active grade/semester VOCAB pool already synchronized by vocab_grade_patch.js.
+Mission: 3 daily words x MC/OX/written = 9 questions.
